@@ -23,11 +23,22 @@ function deploy() {
   if [[ -z "${DESTINATION_PORT}" ]]; then
     DESTINATION_PORT="$USER_PORT"
   fi
-  vpc_id=$(aws ec2 describe-subnets --subnet-ids "$SUBNET_ID" | jq -r '.Subnets[0].VpcId')
+  output=$(aws ec2 describe-subnets --subnet-ids "$SUBNET_ID" 2> /dev/null)
+  exit_code=$?
+  if [[ $exit_code -ne 0 ]]; then
+    echo "Subnet with id ${SUBNET_ID} not found"
+    exit 255
+  fi
+  vpc_id=$(jq -r '.Subnets[0].VpcId' <<< "$output")
   echo "SubnetId: ${SUBNET_ID}, VpcId: ${vpc_id}, StackName: ${STACK_NAME}, UserPort: ${USER_PORT}, DestinationPort: ${DESTINATION_PORT}"
   aws cloudformation deploy --template-file jumpbox.yaml \
     --stack-name "$STACK_NAME" \
-    --parameter-overrides VpcId="$vpc_id" SubnetId="$SUBNET_ID" UserPort="$USER_PORT" DestinationPort="$DESTINATION_PORT" FromIp="$public_ip"
+    --parameter-overrides VpcId="$vpc_id" \
+    SubnetId="$SUBNET_ID" \
+    UserPort="$USER_PORT" \
+    DestinationPort="$DESTINATION_PORT" \
+    FromIp="$public_ip" \
+    NamePrefix="$PREFIX"
 }
 
 function tunnel() {
