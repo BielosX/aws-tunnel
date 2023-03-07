@@ -1,0 +1,59 @@
+Parameters:
+  VpcId:
+    Type: String
+  SubnetId:
+    Type: String
+  UserPort:
+    Type: Number
+  DestinationPort:
+    Type: Number
+  FromIp:
+    Type: String
+  NamePrefix:
+    Type: String
+    Default: "my"
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Instance Security Group"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - CidrIp: !Sub "${FromIp}/32"
+          FromPort: !Ref UserPort
+          ToPort: !Ref UserPort
+          IpProtocol: "tcp"
+        - CidrIp: !Sub "${FromIp}/32"
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: "tcp"
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: !Ref DestinationPort
+          ToPort: !Ref DestinationPort
+          IpProtocol: "tcp"
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: "t3.nano"
+      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${NamePrefix}-jump-box"
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: "0"
+          GroupSet:
+            - !Ref SecurityGroup
+          SubnetId: !Ref SubnetId
+Outputs:
+  UserPort:
+    Value: !Ref UserPort
+  DestinationPort:
+    Value: !Ref DestinationPort
+  InstancePublicIp:
+    Value: !GetAtt Instance.PublicIp
+  InstanceAZ:
+    Value: !GetAtt Instance.AvailabilityZone
+  InstanceId:
+    Value: !Ref Instance
